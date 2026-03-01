@@ -3,6 +3,8 @@
 
 <img src="mermaid-diagram.png" alt="Arquitectura del Agente" width="400"/>
 
+App disponible en [StreamLit Hub](https://diegoxwehunt.streamlit.app/)
+
 Este proyecto es una prueba de concepto de un **AI Agent** diseñado para automatizar la resolución de incidentes de infraestructura. El agente escucha alertas de sistemas de monitorización (como Zabbix), evalúa el contexto, recupera información técnica de manuales corporativos y genera tickets estructurados listos para ser procesados.
 
 ## 🎯 Objetivo del Proyecto
