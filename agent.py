@@ -28,9 +28,9 @@ class EasyVistaTicket(BaseModel):
 
 # Modelo que usará el Router para decidir
 class RouterDecision(BaseModel):
-    next_action: Literal["logs_db", "rag_bookstack"] = Field(
+    next_action: Literal["security", "network", "hardware"] = Field(
         ..., 
-        description="Si la urgencia es baja (1-2) o es un problema recurrente, usa 'logs_db'. Si es urgencia alta (3-5) o un error de sistema crítico, usa 'rag_bookstack'."
+        description="Si la alerta es de seguridad, usa 'security'. Si es de red, usa 'network'. Si es de hardware, usa 'hardware'."
     )
     reasoning: str = Field(..., description="Breve justificación de la decisión")
 
@@ -78,7 +78,7 @@ def router_retriever(state: MessageState) -> dict:
     """
     
     decision = structured_llm.invoke(prompt)
-    print(f"   [Decisión]: Ir a {decision.next_action}. Razón: {decision.reasoning}")
+    #print(f"   [Decisión]: Ir a {decision.next_action}. Razón: {decision.reasoning}")
     return {"router_decision": decision}
 
 def node_logs_db(state: MessageState) -> dict:
