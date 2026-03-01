@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
-from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 from langgraph.graph.state import CompiledStateGraph
 from fastapi import FastAPI, HTTPException, Depends, Request
-from agent import ZabbixAlert, ServerInfo, EasyVistaTicket, get_zabbix_data, create_easyvista_ticket, create_graph_agent
+from agent import ZabbixAlert, create_graph_agent
+import uuid
+
+# Generate a random UUID (version 4)
 async def lifespan(app: FastAPI):
     # 1. Configuramos la persistencia (Checkpointer)
     # Si usas Postgres, aquí abrirías la conexión
@@ -33,9 +35,10 @@ def get_graph(request: Request) -> CompiledStateGraph:
 #     server_info = get_zabbix_data(alert)
 #     ticket_response = create_easyvista_ticket(server_info)
 #     return {"message": ticket_response}
+random_uuid = uuid.uuid4()
 
 @app.post("/webhook")
-def webhook(zabbix_alert: ZabbixAlert, thread_id: str, graph: CompiledStateGraph = Depends(get_graph)):
+def webhook(zabbix_alert: ZabbixAlert, graph: CompiledStateGraph = Depends(get_graph)):
     response = graph.invoke({"zabbix_alert": zabbix_alert})
 
-    return {"easyvista_ticket": response["easyvista_ticket"], "messages" : response["messages"][-1]["content"]}
+    return {"easyvista_ticket": response["easyvista_ticket"]}
