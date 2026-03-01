@@ -9,52 +9,51 @@ from src.agent import create_graph_agent, ZabbixAlert
 class TestAgentUnit(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
-        # Compile the graph agent once for all tests
+        # Compila el agente una vez para todos los tests
         cls.agent = create_graph_agent().compile()
 
-        # Load test cases from JSON file
+        # Carga los escenarios de prueba desde el archivo JSON
         with open("data/test_cases.json", "r") as f:
             cls.test_cases = json.load(f)
 
     async def test_alert_processing(self):
-        """Iterate through test cases and verify agent behavior (Async)"""
+        """Itera a través de los casos de prueba verificando el comportamiento (Async)"""
         for case in self.test_cases:
             with self.subTest(case_name=case["name"]):
-                print(f"\n[Testing Case]: {case['name']}")
+                print(f"\n[Test en ejecución]: {case['name']}")
 
-                # Prepare the payload
+                # Prepara el payload de entrada
                 alert_payload = ZabbixAlert(**case["payload"])
 
-                # Run the agent ASYNC
+                # Llama al agente de forma asíncrona
                 result = await self.agent.ainvoke({"zabbix_alert": alert_payload})
 
-                
-                # Verify Router Decision
+                # Verifica la decisión del Router
                 decision = result["router_decision"]
                 self.assertEqual(
                     decision.category, 
                     case["expected_category"],
-                    f"Expected category {case['expected_category']}, but got {decision.category}"
+                    f"Esperaba la categoría {case['expected_category']}, pero obtuvo {decision.category}"
                 )
                 
-                # Verify Ticket Generation
+                # Verifica la generación correcta del ticket
                 ticket = result["easyvista_ticket"]
                 self.assertIsNotNone(ticket.title)
                 self.assertIsNotNone(ticket.details)
                 
-                # Check for keywords in the resolution details (retrieved from RAG)
+                # Busca las palabras clave de validación en la salida generada
                 found_keywords = [
                     kw for kw in case["expected_keywords"] 
                     if kw.lower() in ticket.details.lower() or kw.lower() in ticket.summary.lower()
                 ]
                 
-                print(f"   Category: {decision.category} (OK)")
-                print(f"   Keywords matched: {found_keywords}")
+                print(f"   Categoría detectada: {decision.category} (OK)")
+                print(f"   Palabras clave presentes: {found_keywords}")
                 
-                # We expect at least one relevant keyword from the manual to be present in the ticket
+                # Se espera que el ticket incluya al menos una palabra clave de la solución original
                 self.assertTrue(
                     len(found_keywords) > 0, 
-                    f"No expected keywords {case['expected_keywords']} found in the ticket details."
+                    f"No se han encontrado las palabras clave esperadas {case['expected_keywords']} en los detalles del ticket."
                 )
 
 if __name__ == "__main__":

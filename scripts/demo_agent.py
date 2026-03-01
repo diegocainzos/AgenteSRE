@@ -5,7 +5,7 @@ from src.agent import create_graph_agent, ZabbixAlert
 import json
 
 def test_hardware_alert():
-    print("=== Testing Hardware Alert (Should go to RAG) ===")
+    print("=== Test de alerta de Hardware (RAG esperado) ===")
     agent = create_graph_agent().compile()
     
     alert = ZabbixAlert(
@@ -16,11 +16,11 @@ def test_hardware_alert():
     )
     
     result = agent.invoke({"zabbix_alert": alert})
-    print("Generated Ticket:")
+    print("Ticket generado:")
     print(json.dumps(result["easyvista_ticket"].model_dump(), indent=2))
 
 def test_logs_alert():
-    print("=== Testing Recurring CPU Alert (Should go to Logs) ===")
+    print("=== Test de alerta recurrente de CPU (Búsqueda en Logs esperada) ===")
     agent = create_graph_agent().compile()
     
     alert = ZabbixAlert(
@@ -31,7 +31,7 @@ def test_logs_alert():
     )
     
     result = agent.invoke({"zabbix_alert": alert})
-    print("Generated Ticket:")
+    print("Ticket generado:")
     print(json.dumps(result["easyvista_ticket"].model_dump(), indent=2))
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 import operator
 from src.rag import query_rag
 
-# --- 1. MODELOS DE DATOS (PYDANTIC) ---
+# Definición de estructuras de datos para las alertas y los tickets.
 
 class ZabbixAlert(BaseModel):
     alert_id: str = Field(..., description="ID único de la alerta")
@@ -31,7 +31,7 @@ class EasyVistaTicket(BaseModel):
     details: str = Field(..., description="Pasos de resolución extraídos de logs o bookstack")
     priority: int = Field(..., description="Prioridad del 1 al 5")
 
-# Modelo que usará el Router para decidir
+# Estructura para que el LLM decida el siguiente paso en el flujo
 class RouterDecision(BaseModel):
     next_action: Literal["logs_db", "rag_bookstack"] = Field(
         ..., 
@@ -43,8 +43,7 @@ class RouterDecision(BaseModel):
     )
     reasoning: str = Field(..., description="Breve justificación de la decisión")
 
-# --- 2. ESTADO DEL GRAFO ---
-
+# Estado compartido a lo largo del grafo
 class MessageState(TypedDict):
     zabbix_alert: ZabbixAlert
     server_info: ServerInfo
@@ -53,13 +52,10 @@ class MessageState(TypedDict):
     easyvista_ticket: EasyVistaTicket
     messages: Annotated[list, operator.add]
 
-# --- 3. CONFIGURACIÓN DEL LLM ---
 llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", temperature=0)
 
-# --- 4. NODOS DEL GRAFO (ASÍNCRONOS) ---
-
 async def call_phpipam(state: MessageState) -> dict:
-    """Nodo 1: Enriquecimiento de datos (Mock de PhpIPAM mejorado)"""
+    """Enriquece la alerta con información del servidor simulando una consulta a un IPAM."""
     print(f"-> Ejecutando: call_phpipam para servidor {state['zabbix_alert'].server_id}")
     
     server_db = {
@@ -80,7 +76,7 @@ async def call_phpipam(state: MessageState) -> dict:
     )}
 
 async def router_retriever(state: MessageState) -> dict:
-    """Nodo 2: El Cerebro que decide a qué DB consultar"""
+    """Analiza la alerta y decide si buscar en logs históricos o manuales técnicos."""
     print("-> Ejecutando: router_retriever")
     alert = state["zabbix_alert"]
     
@@ -97,13 +93,12 @@ async def router_retriever(state: MessageState) -> dict:
     También identifica si la categoría es 'security', 'network', 'hardware' o 'general'.
     """
     
-    # LLM Call is now Awaited
     decision = await structured_llm.ainvoke(prompt)
     print(f"   [Decisión]: Ir a {decision.next_action} (Categoría: {decision.category}). Razón: {decision.reasoning}")
     return {"router_decision": decision}
 
 async def node_logs_db(state: MessageState) -> dict:
-    """Nodo 3A: Simula la búsqueda en logs históricos (Mock Async)"""
+    """Simula una consulta asíncrona a una base de datos de logs pasados."""
     print("-> Ejecutando: logs_db")
     alert_data = state["zabbix_alert"].data.lower()
     if "cpu" in alert_data:
@@ -116,17 +111,16 @@ async def node_logs_db(state: MessageState) -> dict:
     return {"retrieved_knowledge": knowledge}
 
 async def node_rag_bookstack(state: MessageState) -> dict:
-    """Nodo 3B: RAG Real buscando en manuales (Async)"""
+    """Realiza una búsqueda semántica en la base de conocimientos RAG."""
     print("-> Ejecutando: rag_bookstack")
     query = state["zabbix_alert"].data
     category = state["router_decision"].category
     
-    # Mapeo de categoría para que coincida con los encabezados del Markdown
+    # Ajuste de categorías para coincidir con la base de datos de documentos
     filter_cat = None
     if category != "general":
         filter_cat = "NETWORKING" if category == "network" else category.upper()
     
-    # LLM and RAG are now Awaited
     knowledge = await query_rag(query, category=filter_cat)
     
     if not knowledge:
@@ -135,7 +129,7 @@ async def node_rag_bookstack(state: MessageState) -> dict:
     return {"retrieved_knowledge": knowledge}
 
 async def create_easyvista_ticket(state: MessageState) -> dict:
-    """Nodo 4: Crea el ticket final uniendo el contexto y la solución (Async)"""
+    """Genera un ticket de incidencias unificando el contexto y la solución."""
     print("-> Ejecutando: create_easyvista_ticket")
     
     structured_llm = llm.with_structured_output(EasyVistaTicket)
@@ -151,19 +145,15 @@ async def create_easyvista_ticket(state: MessageState) -> dict:
     Asegúrate de que el ticket tenga un título claro y la prioridad adecuada (basada en la urgencia {state['zabbix_alert'].urgency_level}).
     """
     
-    # LLM Call is now Awaited
     ticket = await structured_llm.ainvoke(prompt)
     return {"easyvista_ticket": ticket}
 
-# --- 5. LÓGICA CONDICIONAL (CONDITIONAL EDGE) ---
-
 def route_after_router(state: MessageState) -> str:
-    """Lee el estado y devuelve el nombre del siguiente nodo"""
+    """Determina la transición basada en la decisión del router."""
     return state["router_decision"].next_action
 
-# --- 6. CONSTRUCCIÓN DEL GRAFO ---
-
 def create_graph_agent():
+    """Construye y conecta el grafo de LangGraph."""
     workflow = StateGraph(MessageState)
     
     workflow.add_node("call_phpipam", call_phpipam)

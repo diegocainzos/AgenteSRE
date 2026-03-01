@@ -3,14 +3,14 @@ import json
 import asyncio
 from src.agent import create_graph_agent, ZabbixAlert
 
-# Configure Streamlit page
+# Configuramos la página de Streamlit
 st.set_page_config(
     page_title="We Hunt - Agente SRE",
     page_icon="🚀",
     layout="wide"
 )
 
-# Custom CSS for better aesthetics
+# Estilos CSS personalizados para mejorar la interfaz
 st.markdown("""
     <style>
     .stExpander { border: 1px solid #4B4B4B; border-radius: 5px; }
@@ -19,14 +19,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Cache the agent compilation so it doesn't recompile on every button click
+# Almacenamos en caché la compilación del agente para no recompilar al recargar
 @st.cache_resource
 def get_agent():
     return create_graph_agent().compile()
 
 agent = get_agent()
 
-# Load Test Cases
+# Cargamos la batería de pruebas
 @st.cache_data
 def load_test_cases():
     with open("data/test_cases.json", "r") as f:
@@ -34,8 +34,8 @@ def load_test_cases():
 
 test_cases = load_test_cases()
 
-# --- SIDEBAR: Input ---
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Python-logo-notext.svg/1869px-Python-logo-notext.svg.png", width=50) # Placeholder logo
+# --- PANEL LATERAL: Entrada de datos ---
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Python-logo-notext.svg/1869px-Python-logo-notext.svg.png", width=50)
 st.sidebar.title("Simulador de Zabbix")
 st.sidebar.markdown("Simula la entrada de alertas de infraestructura.")
 
@@ -54,7 +54,7 @@ else:
     data = st.sidebar.text_area("Descripción de la Alerta", "Escribe tu error personalizado aquí...")
     urgency = st.sidebar.slider("Nivel de Urgencia", 1, 5, 3)
 
-# --- MAIN DASHBOARD ---
+# --- PANEL PRINCIPAL ---
 st.title("🚀 We Hunt: Agente de Auto-Remediación SRE")
 
 # Introducción para el reclutador
@@ -73,7 +73,7 @@ st.markdown("""
 
 if st.sidebar.button("Disparar Webhook 🚨", type="primary"):
     
-    # Define the payload
+    # Preparamos el payload de la alerta
     alert_payload = ZabbixAlert(
         alert_id=alert_id, 
         server_id=server_id, 
@@ -83,12 +83,12 @@ if st.sidebar.button("Disparar Webhook 🚨", type="primary"):
     
     st.markdown("### 🧠 Traza de Ejecución del Agente")
     
-    # Create stable containers outside the async loop to prevent DOM errors
+    # Contenedores estáticos para evitar errores de renderizado en React/Streamlit
     progress_bar = st.progress(0)
     status_text = st.empty()
     trace_container = st.container()
     
-    # We use an async function to iterate over the LangGraph stream
+    # Usamos una función asíncrona para iterar el flujo de LangGraph
     async def run_agent_stream():
         step_count = 0
         total_expected_steps = 4 # phpipam -> router -> db/rag -> ticket
@@ -99,7 +99,7 @@ if st.sidebar.button("Disparar Webhook 🚨", type="primary"):
                 progress_bar.progress(int((step_count / total_expected_steps) * 100))
                 status_text.markdown(f"**Estado Actual:** Ejecutando nodo `{node_name}`...")
                 
-                # Append to the stable container
+                # Añadimos la respuesta al contenedor estático
                 with trace_container.expander(f"✅ Nodo Completado: {node_name.upper()}", expanded=True):
                     
                     if node_name == "call_phpipam":
@@ -136,11 +136,10 @@ if st.sidebar.button("Disparar Webhook 🚨", type="primary"):
                         
         status_text.markdown("**Estado Actual:** ¡Flujo Completado! 🎉")
 
-    # Run the async stream inside Streamlit
+    # Ejecutar la corrutina de Streamlit dentro de su propio bucle de eventos
     try:
         asyncio.run(run_agent_stream())
     except Exception as e:
-        # Fallback for some Streamlit environments where event loop is already running
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(run_agent_stream())

@@ -8,7 +8,6 @@ from glob import glob
 
 load_dotenv()
 
-# Configuration
 CHROMA_PATH = "./chroma_db"
 DOCUMENTS_PATH = "./data/documents/*.md"
 
@@ -16,6 +15,7 @@ def get_embeddings():
     return GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
 
 def load_and_split_documents():
+    # Mantener la estructura lógica de los documentos fragmentando por encabezados
     headers_to_split_on = [
         ("#", "Category"),
         ("##", "Title"),
@@ -34,6 +34,7 @@ def load_and_split_documents():
         
         for doc in splits:
             content = doc.page_content
+            # Extracción rudimentaria de IDs para meterlos como metadatos vectoriales
             if "**Zabbix Error ID:**" in content:
                 z_id = content.split("**Zabbix Error ID:**")[1].split("\n")[0].strip(" `")
                 doc.metadata["zabbix_id"] = z_id
@@ -44,7 +45,7 @@ def load_and_split_documents():
 def initialize_vector_db():
     embeddings = get_embeddings()
     if not os.path.exists(CHROMA_PATH) or not os.listdir(CHROMA_PATH):
-        print("Initializing Vector DB with documents...")
+        print("Inicializando la base de datos vectorial con los documentos disponibles...")
         docs = load_and_split_documents()
         vectordb = Chroma.from_documents(
             documents=docs, 
@@ -52,7 +53,7 @@ def initialize_vector_db():
             persist_directory=CHROMA_PATH
         )
     else:
-        print("Loading existing Vector DB...")
+        print("Cargando la base de datos vectorial existente...")
         vectordb = Chroma(
             persist_directory=CHROMA_PATH, 
             embedding_function=embeddings
@@ -65,24 +66,22 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 async def query_rag(query: str, category: str = None):
     vectordb = initialize_vector_db()
     
-    # Configure base retriever
     search_kwargs = {"k": 3}
     if category:
         search_kwargs["filter"] = {"Category": category}
     base_retriever = vectordb.as_retriever(search_kwargs=search_kwargs)
     
-    # Wrap in MultiQueryRetriever for advanced retrieval
+    # Envolvemos el recuperador con MultiQueryRetriever para ganar robustez semántica
     llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", temperature=0)
     retriever = MultiQueryRetriever.from_llm(
         retriever=base_retriever, 
         llm=llm
     )
     
-    print(f"   [RAG]: Performing Multi-Query retrieval for: '{query}'")
-    # Use ainvoke for async retrieval
+    print(f"   [RAG]: Realizando una búsqueda Multi-Query para: '{query}'")
     results = await retriever.ainvoke(query)
     
-    # Combine results into a single string for the LLM
+    # Concatenamos los fragmentos en una string para inyectar en el prompt principal
     context = "\n\n---\n\n".join([doc.page_content for doc in results])
     return context
 
