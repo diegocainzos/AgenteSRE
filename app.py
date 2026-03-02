@@ -5,7 +5,7 @@ from src.agent import create_graph_agent, ZabbixAlert
 
 # Configuramos la página de Streamlit
 st.set_page_config(
-    page_title="We Hunt - Agente SRE",
+    page_title="Agente SRE",
     page_icon="🚀",
     layout="wide"
 )
